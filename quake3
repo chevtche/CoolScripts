@@ -1,0 +1,36 @@
+#!/bin/bash
+
+Q3CONFIG_FILE=/home/greg/.q3a/baseq3/q3config.cfg
+
+WIDTH=`xrandr | grep \* | head -n 1 | grep -Po '\d{3,5}x' | grep -Po '\d{3,5}'`
+HEIGHT=`xrandr | grep \* | head -n 1 | grep -Po 'x\d{3,5}' | grep -Po '\d{3,5}'`
+
+OLD_WIDTH=`cat $Q3CONFIG_FILE | grep -Po 'seta\sr_customwidth.{1,20}' | grep -Po '\d{3,5}'`
+OLD_HEIGHT=`cat $Q3CONFIG_FILE | grep -Po 'seta\sr_customheight.{1,20}' | grep -Po '\d{3,5}'`
+
+if [ "$OLD_WIDTH" == "$WIDTH" ] && [ "$OLD_HEIGHT" == "$HEIGHT" ]; then
+     echo Resolutions matches\! Nothing to do.
+else
+        if [ -z "$WIDTH" ]; then
+                echo Error\: cannot \find screen width
+        else
+                if [ -z "$HEIGHT" ]; then
+                        echo Error\: cannot \find screen height
+                else
+                        echo Current detected screen resolution $WIDTH x $HEIGHT
+                        WIDTH_STRING="seta r_customwidth \"$WIDTH\""
+                        HEIGHT_STRING="seta r_customheight \"$HEIGHT\""
+
+                        cp $Q3CONFIG_FILE $Q3CONFIG_FILE.bckp
+
+                        sed -i "/seta[[:space:]]r_customwidth[[:space:]]\"[0-9]\{1,6\}\"/c $WIDTH_STRING" $Q3CONFIG_FILE
+                        sed -i "/seta[[:space:]]r_customheight[[:space:]]\"[0-9]\{1,6\}\"/c $HEIGHT_STRING" $Q3CONFIG_FILE
+                #sed -i '/res[x,y]=[0-9]/c\res=TEST' Input   
+                fi
+        fi
+fi
+
+echo ------$Q3CONFIG_FILE------
+cat $Q3CONFIG_FILE | grep -Po 'seta\sr_custom[^P].{1,20}'
+
+quake3bin
