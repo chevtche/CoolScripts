@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo $1
+
+AUDIO_LINE=`youtube-dl $1 -F | grep audio | grep 128k`
+FORMAT=`echo $AUDIO_LINE | awk '{print $1;}'`
+
+echo $FORMAT
+TITLE=`youtube-dl $1 -s --get-title`
+TITLE=$TITLE".m4a"
+
+youtube-dl $1 -f $FORMAT -o "$TITLE"
+
+echo $TITLE
+
+`avconv -i "$TITLE" -c:a copy "/tmp/$TITLE"`
+
+`rm "$TITLE"`
+`mv "/tmp/$TITLE" "$TITLE"`
