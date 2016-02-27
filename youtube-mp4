@@ -1,0 +1,120 @@
+#!/bin/bash
+
+NO_COLOR='\033[0m'
+YELLOW='\033[1;33m'
+BLACK='\033[0;30m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BROWN='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+LIGHT_GRAY='\033[0;37m'
+DARK_GRAY='\033[1;30m'
+LIGHT_RED='\033[1;31m'
+LIGHT_GREEN='\033[1;32m'
+LIGHT_BLUE='\033[1;34m'
+LIGHT_PURPLE='\033[1;35m'
+LIGHT_CYAN='\033[1;36m'
+WHITE='\033[1;37m'
+
+OLD_IFS="$IFS"
+IFS=$'\n'
+
+TITLE=`youtube-dl $1 -s --get-title`
+TITLE_AUDIO=$TITLE".m4a"
+TITLE_VIDEO=$TITLE".mp4"
+TITLE_VIDEO_NONFINAL=$TITLE"_.mp4"
+
+echo -e ${YELLOW}"Finding \"out of the box\" videos:"
+VIDEO_LINES=`youtube-dl $1 -F | grep -P '\d{2,5}x\d{2,5}'`
+
+MAX_DEFINITION=0
+MAX_DEFINITION_FORMAT=0
+
+for VIDEO_LINE in $VIDEO_LINES; do
+    FORMAT=`echo $VIDEO_LINE | awk '{print $1;}'`
+    EXTENSION=`echo $VIDEO_LINE | awk '{print $2;}'` 
+    RESOLUTION=`echo $VIDEO_LINE | awk '{print $3;}'`
+
+    DEFINITION=`echo "$RESOLUTION" | grep -Po '\d{2,5}'`
+    DEFINITION=`echo $DEFINITION | awk '{print $2;}'` 
+    if (( MAX_DEFINITION < DEFINITION )); then
+        if [ "$EXTENSION" == "mp4" ]; then 
+            MAX_DEFINITION=$DEFINITION
+            MAX_DEFINITION_FORMAT=$FORMAT
+        else
+            echo -e ${LIGHT_RED}"Skipped non .mp4 video at "$DEFINITION"p definition." 
+        fi
+    fi
+
+    echo -e ${LIGHT_BLUE}"Found: .""$EXTENSION"" video with "${LIGHT_CYAN}"$RESOLUTION"${LIGHT_BLUE}" resolution. Format id: ""$FORMAT"
+done
+
+echo -e ${LIGHT_BLUE}"Maximum definition for \"out of the box\" videos: "${YELLOW}$MAX_DEFINITION"p."
+
+echo -e ${YELLOW}"Finding \"videos only\" medias:"
+VIDEO_MEDIA_LINES=`youtube-dl $1 -F | grep -P '\d{2,5}p'`
+
+MAX_DEFINITION_V=0
+MAX_DEFINITION_FORMAT_V=0
+
+for VIDEO_MEDIA_LINE in $VIDEO_MEDIA_LINES; do
+    FORMAT=`echo $VIDEO_MEDIA_LINE | awk '{print $1;}'`
+    EXTENSION=`echo $VIDEO_MEDIA_LINE | awk '{print $2;}'` 
+    RESOLUTION=`echo $VIDEO_MEDIA_LINE | awk '{print $3;}'`
+
+    DEFINITION=`echo "$RESOLUTION" | grep -Po '\d{2,5}'` 
+    if (( MAX_DEFINITION_V < DEFINITION )); then
+        if [ "$EXTENSION" == "mp4" ]; then 
+            MAX_DEFINITION_V=$DEFINITION
+            MAX_DEFINITION_FORMAT_V=$FORMAT 
+        else
+            echo -e ${LIGHT_RED}"Skipped non .mp4 video at "$DEFINITION"p definition." 
+        fi
+    fi
+
+    echo -e ${LIGHT_BLUE}"Found: .""$EXTENSION"" video with "${LIGHT_CYAN}"$RESOLUTION"${LIGHT_BLUE}" resolution. Format id: ""$FORMAT"
+done
+
+echo -e ${LIGHT_BLUE}"Maximum definition for \"videos only\" videos: "${YELLOW}$MAX_DEFINITION_V"p."
+
+if (( MAX_DEFINITION >= MAX_DEFINITION_V )); then
+    echo -e ${YELLOW}"Better definition for \"out of the box\" video."${RED}" Downloading."${NO_COLOR}
+    youtube-dl $1 -f $MAX_DEFINITION_FORMAT -o "$TITLE_VIDEO" 
+else
+    echo -e ${YELLOW}"Better definition for \"videos only\" video."
+
+    echo -e ${YELLOW}"Finding audio:"
+    AUDIO_LINES=`youtube-dl $1 -F | grep -P '\d{2,4}k'`
+
+    MAX_QUALITY=0
+    MAX_QUALITY_FORMAT=0
+
+    for AUDIO_LINE in $AUDIO_LINES; do
+        FORMAT=`echo $AUDIO_LINE | awk '{print $1;}'`
+        EXTENSION=`echo $AUDIO_LINE | awk '{print $2;}'` 
+        QUALITY=`echo $AUDIO_LINE | grep -Po '\d{2,4}k' | grep -Po '\d{2,4}'`
+
+        if (( MAX_QUALITY < QUALITY )); then
+            MAX_QUALITY=$QUALITY
+            MAX_QUALITY_FORMAT=$FORMAT  
+        fi
+
+        echo -e ${LIGHT_BLUE}"Found: .""$EXTENSION"" audio with "${LIGHT_CYAN}"$QUALITY"${LIGHT_BLUE}" quality. Format id: ""$FORMAT"
+    done
+
+    echo -e ${LIGHT_BLUE}"Maximum audio quality: "${YELLOW}$MAX_QUALITY"k."
+    echo -e ${RED}"Downloading audio..."${NO_COLOR}
+    youtube-dl $1 -f $MAX_QUALITY_FORMAT -o "$TITLE_AUDIO"
+    echo -e ${RED}"Downloading video..."${NO_COLOR}
+    youtube-dl $1 -f $MAX_DEFINITION_FORMAT_V -o "$TITLE_VIDEO_NONFINAL"
+
+    echo -e ${RED}"Creating final video..."${NO_COLOR}
+    `avconv -i "$TITLE_AUDIO" -i "$TITLE_VIDEO_NONFINAL" -c:a copy -c:v copy "$TITLE_VIDEO"`
+    rm "$TITLE_AUDIO"
+    rm "$TITLE_VIDEO_NONFINAL"    
+fi
+
+IFS="$OLD_IFS"
+echo -e ${NO_COLOR} $MAX_DEFINITION
