@@ -1,19 +1,73 @@
 #!/bin/bash
 
+NO_COLOR='\033[0m'
+YELLOW='\033[1;33m'
+BLACK='\033[0;30m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BROWN='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+LIGHT_GRAY='\033[0;37m'
+DARK_GRAY='\033[1;30m'
+LIGHT_RED='\033[1;31m'
+LIGHT_GREEN='\033[1;32m'
+LIGHT_BLUE='\033[1;34m'
+LIGHT_PURPLE='\033[1;35m'
+LIGHT_CYAN='\033[1;36m'
+WHITE='\033[1;37m'
+
 echo $1
 
-AUDIO_LINE=`youtube-dl $1 -F | grep audio | grep 128k`
-FORMAT=`echo $AUDIO_LINE | awk '{print $1;}'`
+OLD_IFS="$IFS"
+IFS=$'\n'
 
-echo $FORMAT
+echo -e ${YELLOW}"Finding audio:"
+#AUDIO_LINE=`youtube-dl $1 -F | grep audio | grep 128k`
+AUDIO_LINES=`youtube-dl $1 -F | grep "DASH audio" | grep -P '\d{2,4}k'`
+
+MAX_QUALITY=0
+MAX_QUALITY_FORMAT=0
+
+for AUDIO_LINE in $AUDIO_LINES; do
+    FORMAT=`echo $AUDIO_LINE | awk '{print $1;}'`
+    EXTENSION=`echo $AUDIO_LINE | awk '{print $2;}'`
+    QUALITY=`echo $AUDIO_LINE | grep -Po '\d{2,4}k\s,' | grep -Po '\d{2,4}'`
+    echo -e $QUALITY
+
+    if (( MAX_QUALITY < QUALITY )); then
+        MAX_QUALITY=$QUALITY
+        MAX_QUALITY_FORMAT=$FORMAT
+        MAX_QUALITY_EXTENSION=$EXTENSION
+    fi
+
+    echo -e ${LIGHT_BLUE}"Found: .""$EXTENSION"" audio with "${LIGHT_CYAN}"$QUALITY"${LIGHT_BLUE}" quality. Format id: ""$FORMAT"
+done
+
+#FORMAT=`echo $AUDIO_LINE | awk '{print $1;}'`
+
 TITLE=`youtube-dl $1 -s --get-title`
 TITLE=$TITLE".m4a"
 
-youtube-dl $1 -f $FORMAT -o "$TITLE"
+echo -e ${LIGHT_BLUE}"Maximum audio quality: "${YELLOW}$MAX_QUALITY"k."
+echo -e ${RED}"Downloading audio..."${NO_COLOR}
+youtube-dl $1 -f $MAX_QUALITY_FORMAT -o "$TITLE"
+
+if [ "$MAX_QUALITY_EXTENSION" == "m4a" ]; then
+    `avconv -i "$TITLE" -c:a copy "/tmp/$TITLE"`
+else
+    `avconv -i "$TITLE" -c:a libmp3lame -ab "$MAX_QUALITY""k" "/tmp/$TITLE"`
+fi
+
+#youtube-dl $1 -f $FORMAT -o "$TITLE"
 
 echo $TITLE
 
-`avconv -i "$TITLE" -c:a copy "/tmp/$TITLE"`
+#`avconv -i "$TITLE" -c:a copy "/tmp/$TITLE"`
 
 `rm "$TITLE"`
 `mv "/tmp/$TITLE" "$TITLE"`
+
+IFS="$OLD_IFS"
+echo -e ${NO_COLOR} $MAX_DEFINITION
